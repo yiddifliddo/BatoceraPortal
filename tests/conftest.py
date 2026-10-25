@@ -52,7 +52,8 @@ def env(tmp_path, monkeypatch):
     builtin.write_text(SAMPLE_ES_SYSTEMS, encoding="utf-8")
     monkeypatch.setenv("BP_SETTINGS", str(tmp_path / "settings.json"))
     monkeypatch.setenv("BP_BASE_DIR", str(base))
-    from portal import config, systems, roms, bios
+    from portal import config, systems, roms, bios, service
+    monkeypatch.setattr(service, "has_batocera_services", lambda: False)
     systems.invalidate_catalogue()
     roms.invalidate_rom_cache()
     bios._DB_CACHE.update({"data": None, "source": None})

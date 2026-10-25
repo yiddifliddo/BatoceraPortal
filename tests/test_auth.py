@@ -130,7 +130,8 @@ def test_login_cookie_flow(raw_client):
     assert cookie.startswith("bp_session=") and "HttpOnly" in cookie
     token = cookie.split(";")[0]
     status, body, _ = raw_client("GET", "/api/info", headers={"Cookie": token})
-    assert status == 200 and body["version"] == "1.1.0"
+    from portal import __version__
+    assert status == 200 and body["version"] == __version__
     status, body, _ = raw_client("GET", "/", headers={"Cookie": token})
     assert b"panel-dashboard" in body
     status, body, cleared = raw_client("POST", "/api/logout", headers={"Cookie": token})

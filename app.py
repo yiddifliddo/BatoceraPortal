@@ -27,7 +27,13 @@ def main(argv=None):
 
     settings = load_settings()
     port = args.port or int(settings.get("server_port", 5000))
-    httpd = serve(args.host, port)
+    try:
+        httpd = serve(args.host, port)
+    except OSError as e:
+        print(f"ERROR: cannot listen on port {port}: {e}")
+        print("       Another program is probably using it. Start with --port <other>, "
+              "e.g. --port 5001, or stop the other program.")
+        return 1
     print("=" * 56)
     print(f"  {APP_NAME} v{__version__}")
     print(f"  Pillow: {'available' if HAS_PIL else 'not installed (placeholder logos disabled)'}")
@@ -43,4 +49,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

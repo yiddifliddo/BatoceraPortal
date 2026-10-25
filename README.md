@@ -1,6 +1,6 @@
 # Batocera Portal
 
-**Version 1.1.0 · Author: Dan Lee · MIT licence**
+**Version 1.2.0 · Author: Dan Lee · MIT licence**
 
 A self-contained web admin panel for a [Batocera](https://batocera.org) machine. Install it on
 the Batocera box itself, then open it from any phone, tablet or PC on your home network to manage
@@ -49,24 +49,36 @@ JavaScript. Nothing to compile, no pip packages, no Node, no Docker.
 Everything happens on the Batocera machine over SSH. Only Python 3 is needed and Batocera
 already ships it.
 
+**With a copy of the files** (the repository is private, so `git clone` and `wget` from GitHub
+need credentials; copying the archive over the network share is simpler):
+
+1. Copy `batocera_portal-<version>.tar.gz` to the share: `\\BATOCERA\share\system\`
+   (`smb://BATOCERA/share/system/` on a Mac).
+2. Over SSH:
+
 ```bash
 ssh root@BATOCERA            # password is "linux" by default
-git clone https://github.com/yiddifliddo/BatoceraPortal /userdata/system/batocera_portal
-cd /userdata/system/batocera_portal
-./install.sh
+cd /userdata/system
+tar -xzf batocera_portal-*.tar.gz && rm batocera_portal-*.tar.gz
+cd batocera_portal
+BP_AUTOSTART=y ./install.sh
 ```
 
-Batocera does not ship `git` by default. Without it, download the repository as a zip on
-another computer, copy it to `/userdata/system/batocera_portal` (over SMB, the share is called
-`system`), then run `./install.sh` over SSH.
+If you have `git` on the box or the repository is public, `git clone … /userdata/system/batocera_portal`
+followed by `./install.sh` works too.
 
 The installer:
 
 1. Checks Python 3 and whether Pillow is available (optional, only for placeholder logos).
 2. Copies the files to `/userdata/system/batocera_portal` if they are not already there.
-3. Asks whether to start the portal at boot. Yes adds a marked block to
-   `/userdata/system/custom.sh`, which Batocera runs at every boot.
-4. Starts the server straight away.
+3. Stops any previous copy of the portal and **checks the port is free**. If something else
+   holds it, the installer stops and names that process. Use another port with
+   `BP_PORT=5001 BP_AUTOSTART=y ./install.sh`.
+4. Asks whether to start the portal at boot. Yes registers a **Batocera service**
+   (`/userdata/system/services/batocera_portal`, enabled with `batocera-services enable`).
+   On older builds without `batocera-services` it falls back to a guarded block in
+   `custom.sh`, inserted before the template's final `exit`.
+5. Starts the server, logging to `/userdata/system/batocera_portal.log`.
 
 Then open **http://BATOCERA:5000** (or the IP address shown by the installer) and sign in with
 the default password **`linuxrox`**. Change it straight away in **Settings → Password**.
@@ -77,7 +89,7 @@ the default password **`linuxrox`**. Change it straight away in **Settings → P
 |---|---|---|
 | `BP_PORT` | `5000` | Web port |
 | `BP_BASE_DIR` | `/userdata/system` | Batocera system folder |
-| `BP_CUSTOM_SH` | `$BP_BASE_DIR/custom.sh` | Boot script to edit |
+| `BP_CUSTOM_SH` | `$BP_BASE_DIR/custom.sh` | Boot script to edit (fallback only) |
 | `BP_PYTHON` | `python3` | Interpreter |
 | `BP_AUTOSTART` | *(asks)* | `y` or `n` for unattended installs |
 | `BP_NO_START` | `0` | `1` installs without starting the server |
@@ -150,8 +162,12 @@ static/index.html + app.css + app.js   the whole UI, no build step
   same file Batocera's own BIOS checker uses. A small bundled list is used off-device.
 - **Metrics** are read directly from `/proc/stat`, `/proc/meminfo`, `/sys/class/thermal`,
   `/sys/class/hwmon`, `/sys/class/drm` and `/sys/class/power_supply`. No agent, no daemon.
-- **Autostart** is a block between `# [batocera-portal]` and `# [/batocera-portal]` markers in
-  `custom.sh`, so it can be replaced or removed without touching your other lines.
+- **Autostart** registers a Batocera service: a script at
+  `/userdata/system/services/batocera_portal` that answers `start`, `stop`, `restart` and
+  `status`, enabled with `batocera-services enable batocera_portal`. Where `batocera-services`
+  does not exist, a block between `# [batocera-portal]` and `# [/batocera-portal]` markers goes
+  into `custom.sh` before its final `exit`, guarded so it only runs on `start`. Batocera's own
+  `custom.sh` template ends with `exit $?`, which is why simply appending to it never works.
 - **EmulationStation restart** uses `batocera-es-swissknife --restart`, the supported method.
 - **Scraper batch jobs** run on one background thread; the UI polls `/api/scraper/jobs`.
   Images are saved with EmulationStation's naming (`images/<rom>-image.png`, `-box`, `-marquee`…)
@@ -229,7 +245,7 @@ Environment variables for development: `BP_SETTINGS` (settings file path) and `B
 ```bash
 pip install pytest
 python -m pytest
-# 91 passed
+# 94 passed
 ```
 
 Tests run anywhere; they build a fake `/userdata` tree in a temporary folder and spin up the
@@ -278,6 +294,15 @@ verified by MD5.
 
 ## Changes in this version
 
+**1.2.0 (2026-10-25)** – autostart and installer fixes found on a real Batocera 43.1 box.
+
+- Autostart now uses `batocera-services` with a service script; the old `custom.sh` approach
+  was dead code on Batocera 43 because the template ends with `exit $?`.
+- Installer checks the port is free and names the process holding it; `app.py` gives a clear
+  error instead of a traceback when it cannot bind.
+- Installer stops previous copies, logs to `batocera_portal.log`, remembers `BP_PORT`.
+- Settings panel shows the autostart mechanism. 94 tests.
+
 **1.1.0 (2026-10-25)** – password protection.
 
 - Login page with session cookie; default password `linuxrox`; change it in Settings → Password.
@@ -300,5 +325,5 @@ Design decisions compared with similar tools:
 
 ## Versioning
 
-The version number is `1.1.0`, defined once in `portal/__init__.py`. Every code change bumps it
+The version number is `1.2.0`, defined once in `portal/__init__.py`. Every code change bumps it
 (patch for fixes, minor for features, major for breaking changes) and gets a CHANGELOG entry.

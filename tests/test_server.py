@@ -94,7 +94,9 @@ def test_logo_upload_multipart(client, env):
     assert status == 200 and resp.startswith(b"\x89PNG")
 
 
-def test_service_autostart_endpoint(client, env):
+def test_service_autostart_endpoint(client, env, monkeypatch):
+    from portal import service
+    monkeypatch.setattr(service, "has_batocera_services", lambda: False)
     status, body = client("POST", "/api/service/autostart", {"enabled": True})
     assert status == 200 and body["autostart"]["registered"]
     status, body = client("GET", "/api/service/status")

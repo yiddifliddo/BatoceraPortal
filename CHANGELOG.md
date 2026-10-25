@@ -7,6 +7,28 @@ project uses [Semantic Versioning](https://semver.org/).
 The current version lives in one place: `portal/__init__.py` (`__version__`).
 Every change that produces code bumps it.
 
+## [1.2.0] - 2026-10-25
+
+### Fixed
+- **Autostart never ran on Batocera 43.** Batocera's `custom.sh` template ends with `exit $?`, so a
+  block appended after it is dead code. Autostart now uses the supported mechanism: a service
+  script at `/userdata/system/services/batocera_portal` enabled with `batocera-services enable`.
+  On builds without `batocera-services`, the `custom.sh` block is inserted *before* the final
+  `exit` and only runs when `custom.sh` is called with `start`.
+- **Port already in use was silent.** The installer now checks the port before starting and
+  stops with the name of the process holding it, suggesting `BP_PORT=5001`. `app.py` prints a
+  clear message instead of a traceback when it cannot bind.
+
+### Changed
+- Version bumped to 1.2.0.
+- The installer stops a previous copy of the portal before starting, logs the server to
+  `/userdata/system/batocera_portal.log`, prints the last log lines if it fails to start, and
+  stores `BP_PORT` in the settings file so the portal's own restart button uses the same port.
+- Installing with `batocera-services` removes any `custom.sh` block left by earlier versions.
+- Settings panel shows which autostart mechanism is in use and any enable error.
+- `/api/service/status` autostart object gained `mechanism`, `enabled`, `script_present`, `note`.
+- 4 new service tests; suite is now 94 tests.
+
 ## [1.1.0] - 2026-10-25
 
 ### Added

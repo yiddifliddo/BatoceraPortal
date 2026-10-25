@@ -480,7 +480,8 @@ loaders.settings = async () => {
   $('#default-pw-notice').classList.toggle('hidden', !s.settings.password_is_default);
   $('#manual-notice').classList.toggle('hidden', !svc.process.manual_mode);
   $('#autostart-toggle').checked = svc.autostart.registered;
-  $('#service-info').innerHTML = [['PID', svc.process.pid],['Port', svc.process.port],['Mode', svc.process.manual_mode ? 'manual (no autostart)' : 'autostart via custom.sh'],['Command', svc.autostart.cmd || svc.suggested_cmd],['custom.sh', svc.autostart.file]].map(([k,v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
+  const a = svc.autostart;
+  $('#service-info').innerHTML = [['PID', svc.process.pid],['Port', svc.process.port],['Mode', svc.process.manual_mode ? 'manual (no autostart)' : `autostart via ${a.mechanism}`],['Command', a.cmd || svc.suggested_cmd],[a.mechanism === 'batocera-services' ? 'Service script' : 'custom.sh', a.file], a.note ? ['Note', a.note] : null].filter(Boolean).map(([k,v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
 };
 $('#settings-form').onsubmit = async e => {
   e.preventDefault(); const data = {}; SETTING_KEYS.forEach(k => { const el = $('#s-' + k); if (el) data[k] = el.value; });
