@@ -12,13 +12,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import APP_NAME, __version__
-from . import bios, metrics, retro, roms, scraper, service, systems, themes
-from .config import load_settings, save_settings
+from . import auth, bios, metrics, retro, roms, scraper, service, systems, themes
+from .config import load_settings, public_settings, save_settings
 from .util import confine, is_safe_slug, parse_multipart
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 MAX_BODY = 512 * 1024 * 1024
 ROUTES = []
+PUBLIC_PATHS = {"/", "/login", "/favicon.ico", "/api/login"}
 
 
 def route(method, pattern):
@@ -38,6 +39,10 @@ class Request:
         self.query = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
         self.settings = load_settings()
         self._body = None
+        self.client_ip = handler.client_address[0] if handler.client_address else "?"
+        self.headers = handler.headers
+        self.authenticated = False
+        self.extra_headers = []
 
     def body(self):
         if self._body is None:
@@ -81,11 +86,70 @@ def fail(message, status=400, **extra):
 
 
 # ------------------------------------------------------------------ static --
+def _render(name):
+    html = (STATIC_DIR / name).read_text(encoding="utf-8")
+    return html.replace("{{app_version}}", __version__).replace("{{app_name}}", APP_NAME)
+
+
 @route("GET", "/")
 def index(req):
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    html = html.replace("{{app_version}}", __version__).replace("{{app_name}}", APP_NAME)
-    return ("html", html)
+    if not req.authenticated:
+        return ("html", _render("login.html"))
+    return ("html", _render("index.html"))
+
+
+@route("GET", "/login")
+def login_page(req):
+    return ("html", _render("login.html"))
+
+
+# ------------------------------------------------------------------ auth -----
+@route("POST", "/api/login")
+def api_login(req):
+    wait = auth.locked_for(req.client_ip)
+    if wait:
+        return fail(f"Too many attempts. Try again in {wait} s", 429, retry_after=wait)
+    d = req.json()
+    if not auth.verify_password(str(d.get("password", "")), req.settings):
+        auth.record_failure(req.client_ip)
+        wait = auth.locked_for(req.client_ip)
+        msg = "Wrong password" + (f". Locked for {wait} s" if wait else "")
+        return fail(msg, 401)
+    auth.clear_failures(req.client_ip)
+    token = auth.create_session()
+    req.extra_headers.append(("Set-Cookie", auth.set_cookie_header(token)))
+    return ok(password_is_default=auth.password_is_default(req.settings))
+
+
+@route("POST", "/api/logout")
+def api_logout(req):
+    token = auth.parse_cookies(req.headers.get("Cookie")).get(auth.COOKIE_NAME)
+    auth.destroy_session(token)
+    req.extra_headers.append(("Set-Cookie", auth.clear_cookie_header()))
+    return ok()
+
+
+@route("GET", "/api/auth")
+def api_auth_status(req):
+    return ok(password_is_default=auth.password_is_default(req.settings),
+              sessions=auth.session_count())
+
+
+@route("POST", "/api/password")
+def api_change_password(req):
+    d = req.json()
+    if not auth.verify_password(str(d.get("current", "")), req.settings):
+        auth.record_failure(req.client_ip)
+        return fail("Current password is wrong", 401)
+    new = str(d.get("new", ""))
+    if new != str(d.get("confirm", new)):
+        return fail("New passwords do not match")
+    success, error = auth.set_password(new)
+    if not success:
+        return fail(error)
+    token = auth.create_session()
+    req.extra_headers.append(("Set-Cookie", auth.set_cookie_header(token)))
+    return ok(changed=True)
 
 
 @route("GET", r"/static/(?P<name>[A-Za-z0-9_./-]+)")
@@ -131,9 +195,7 @@ def api_news(req):
 
 @route("GET", "/api/settings")
 def api_get_settings(req):
-    s = dict(req.settings)
-    s["ra_api_key"] = "********" if s.get("ra_api_key") else ""
-    return ok(settings=s)
+    return ok(settings=public_settings(req.settings))
 
 
 @route("POST", "/api/settings")
@@ -152,8 +214,7 @@ def api_save_settings(req):
     s = save_settings(data)
     systems.invalidate_catalogue()
     roms.invalidate_rom_cache()
-    s["ra_api_key"] = "********" if s.get("ra_api_key") else ""
-    return ok(settings=s)
+    return ok(settings=public_settings(s))
 
 
 # ------------------------------------------------------------------ service --
@@ -541,21 +602,27 @@ class PortalHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         sys.stderr.write(f"  {self.address_string()} {fmt % args}\n")
 
+    _extra_headers = ()
+
     def _send_json(self, data, status=200):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        for k, v in self._extra_headers:
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_html(self, html):
+    def _send_html(self, html, status=200):
         body = html.encode("utf-8")
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        for k, v in self._extra_headers:
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
@@ -577,6 +644,12 @@ class PortalHandler(BaseHTTPRequestHandler):
     def _dispatch(self, method):
         try:
             req = Request(self)
+            self._extra_headers = req.extra_headers
+            req.authenticated = auth.authenticate(req.headers, req.settings)
+            is_public = req.path in PUBLIC_PATHS or req.path.startswith("/static/")
+            if not req.authenticated and not is_public:
+                return self._send_json({"ok": False, "error": "Authentication required",
+                                        "login": "/login"}, 401)
             for m, rx, fn in ROUTES:
                 if m != method:
                     continue

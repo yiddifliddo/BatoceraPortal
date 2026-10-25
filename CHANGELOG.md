@@ -7,6 +7,33 @@ project uses [Semantic Versioning](https://semver.org/).
 The current version lives in one place: `portal/__init__.py` (`__version__`).
 Every change that produces code bumps it.
 
+## [1.1.0] - 2026-10-25
+
+### Added
+- **Password protection.** The whole portal now sits behind a login page. Default password
+  `linuxrox`; change it in Settings → Password. The password is stored as a salted PBKDF2-SHA256
+  hash in the settings file, never in plain text.
+- Browser sessions use an HttpOnly cookie that expires after a week of inactivity. A
+  **Sign out** button lives at the bottom of the sidebar.
+- Scripts and `curl` can authenticate with HTTP Basic auth: any username, the portal password
+  (`curl -u :linuxrox …`).
+- 30-second lockout per IP address after 5 wrong passwords.
+- Changing the password signs out every other browser.
+- A warning in Settings while the default password is still in use; the login page sends you to
+  Settings on first sign-in for the same reason.
+- New endpoints: `POST /api/login`, `POST /api/logout`, `GET /api/auth`, `POST /api/password`.
+- 14 new tests (`tests/test_auth.py`); the API tests now authenticate like a real client.
+
+### Changed
+- Version bumped to 1.1.0.
+- `GET /api/settings` never returns the password hash or salt; `POST /api/settings` cannot set them.
+- Unauthenticated requests to any `/api/*` endpoint return `401` with `{"login": "/login"}`;
+  the front end redirects to the login page when it sees that.
+
+### Security notes
+- Traffic is still plain HTTP, so the password crosses your LAN unencrypted when you sign in.
+  Keep the portal on a trusted network or behind a VPN.
+
 ## [1.0.0] - 2026-10-25
 
 First release. Author: Dan Lee.

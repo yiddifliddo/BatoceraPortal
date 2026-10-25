@@ -15,6 +15,7 @@ async function api(path, opts = {}) {
   let res, data;
   try { res = await fetch(path, init); } catch (e) { throw new Error('Portal unreachable: ' + e.message); }
   try { data = await res.json(); } catch { throw new Error(`HTTP ${res.status} with a non-JSON reply`); }
+  if (res.status === 401 && data.login) { location.replace('/login#' + (location.hash || '').replace('#', '')); throw new Error('Signed out'); }
   if (!res.ok || data.ok === false) {
     const err = new Error(data.error || `HTTP ${res.status}`);
     err.data = data; throw err;
@@ -104,6 +105,7 @@ async function restartEs() {
 }
 $('#es-restart-btn').onclick = restartEs;
 $('#svc-es-restart').onclick = restartEs;
+$('#logout-btn').onclick = async () => { try { await api('/api/logout', { method:'POST' }); } catch {} location.replace('/login'); };
 
 // ------------------------------------------------------------ dashboard ----
 let dashTimer = null;
@@ -475,6 +477,7 @@ const SETTING_KEYS = ['es_cfg_dir','roms_base','bios_dir','themes_user','themes_
 loaders.settings = async () => {
   const [s, svc] = await Promise.all([api('/api/settings'), api('/api/service/status')]);
   SETTING_KEYS.forEach(k => { const el = $('#s-' + k); if (el) el.value = s.settings[k] ?? ''; });
+  $('#default-pw-notice').classList.toggle('hidden', !s.settings.password_is_default);
   $('#manual-notice').classList.toggle('hidden', !svc.process.manual_mode);
   $('#autostart-toggle').checked = svc.autostart.registered;
   $('#service-info').innerHTML = [['PID', svc.process.pid],['Port', svc.process.port],['Mode', svc.process.manual_mode ? 'manual (no autostart)' : 'autostart via custom.sh'],['Command', svc.autostart.cmd || svc.suggested_cmd],['custom.sh', svc.autostart.file]].map(([k,v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
@@ -482,6 +485,12 @@ loaders.settings = async () => {
 $('#settings-form').onsubmit = async e => {
   e.preventDefault(); const data = {}; SETTING_KEYS.forEach(k => { const el = $('#s-' + k); if (el) data[k] = el.value; });
   try { await api('/api/settings', { method:'POST', json: data }); ok('Settings saved'); state.catalogue = null; loaders.settings(); } catch (e2) { err(e2); }
+};
+$('#password-form').onsubmit = async e => {
+  e.preventDefault();
+  const cur = $('#pw-current').value, nw = $('#pw-new').value, cf = $('#pw-confirm').value;
+  if (nw !== cf) return err('New passwords do not match');
+  try { await api('/api/password', { method:'POST', json:{ current: cur, new: nw, confirm: cf } }); ok('Password changed'); $('#password-form').reset(); loaders.settings(); } catch (e2) { err(e2); }
 };
 $('#ra-test').onclick = async () => { try { const r = await api('/api/retroachievements/test', { method:'POST', json:{ user: $('#s-ra_user').value, api_key: $('#s-ra_api_key').value } }); ok(`Connected as ${r.user} (${r.points} points)`); } catch (e) { err(e); } };
 async function setAutostart(enabled) { try { await api('/api/service/autostart', { method:'POST', json:{ enabled } }); ok(enabled ? 'Autostart enabled' : 'Autostart removed'); loaders.settings(); } catch (e) { err(e); } }

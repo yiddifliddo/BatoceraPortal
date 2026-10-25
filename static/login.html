@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{app_name}} · Sign in</title>
+<link rel="icon" href="/favicon.ico" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+  .login{width:min(380px,100%);text-align:center}
+  .login img{width:64px;height:64px;margin-bottom:8px}
+  .login h1{font-size:22px;margin:0 0 4px}
+  .login .form{margin-top:18px;display:flex;flex-direction:column;gap:10px;text-align:left}
+  .login .err{color:var(--danger);min-height:1.3em;font-size:.9em;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <form class="card login" id="login-form" autocomplete="off">
+    <img src="/favicon.ico" alt="">
+    <h1>{{app_name}}</h1>
+    <div class="muted small">v{{app_version}} · sign in to continue</div>
+    <div class="form">
+      <input type="password" id="password" placeholder="Password" autofocus required autocomplete="current-password">
+      <button class="btn btn-primary" id="submit" type="submit">Sign in</button>
+    </div>
+    <div class="err" id="err"></div>
+  </form>
+</div>
+<script>
+(() => {
+  const form = document.getElementById('login-form'), pw = document.getElementById('password'),
+        btn = document.getElementById('submit'), err = document.getElementById('err');
+  form.onsubmit = async e => {
+    e.preventDefault(); btn.disabled = true; err.textContent = '';
+    try {
+      const r = await fetch('/api/login', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ password: pw.value }) });
+      const d = await r.json();
+      if (!r.ok || !d.ok) { err.textContent = d.error || 'Login failed'; pw.select(); }
+      else {
+        // A hash-only change would not reload the page, so force a real navigation.
+        const hash = d.password_is_default ? '#settings' : (location.hash || '');
+        if (location.pathname === '/') { if (hash) location.hash = hash; location.reload(); }
+        else location.replace('/' + hash);
+      }
+    } catch (e2) { err.textContent = 'Portal unreachable: ' + e2.message; }
+    btn.disabled = false;
+  };
+})();
+</script>
+</body>
+</html>

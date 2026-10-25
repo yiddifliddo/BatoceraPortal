@@ -1,6 +1,6 @@
 # Batocera Portal
 
-**Version 1.0.0 · Author: Dan Lee · MIT licence**
+**Version 1.1.0 · Author: Dan Lee · MIT licence**
 
 A self-contained web admin panel for a [Batocera](https://batocera.org) machine. Install it on
 the Batocera box itself, then open it from any phone, tablet or PC on your home network to manage
@@ -39,7 +39,8 @@ JavaScript. Nothing to compile, no pip packages, no Node, no Docker.
 | **ROMs & BIOS** | ROM folder inventory grouped by hardware type; file browser; edit gamelist metadata, rename, manage media. BIOS verification by MD5 with upload, URL download and skip list |
 | **Scraper** | ScreenScraper.fr and TheGamesDB; single game with preview, or batch jobs with progress |
 | **Themes** | Installed themes, active theme, system logo upload |
-| **Settings** | Paths, port, RetroAchievements, autostart in `custom.sh`, restart/stop, reboot/shutdown |
+| **Settings** | Paths, port, RetroAchievements, autostart in `custom.sh`, restart/stop, reboot/shutdown, change password |
+| **Login** | Password-protected; default password `linuxrox` |
 
 ---
 
@@ -67,7 +68,8 @@ The installer:
    `/userdata/system/custom.sh`, which Batocera runs at every boot.
 4. Starts the server straight away.
 
-Then open **http://BATOCERA:5000** (or the IP address shown by the installer).
+Then open **http://BATOCERA:5000** (or the IP address shown by the installer) and sign in with
+the default password **`linuxrox`**. Change it straight away in **Settings → Password**.
 
 ### Installer options
 
@@ -115,6 +117,8 @@ Or from inside the portal: Settings → **Restart portal** after replacing the f
 - **Check BIOS.** ROMs & BIOS → BIOS check. Missing files can be uploaded from your browser or
   downloaded from a URL you supply; downloads are verified by MD5 and discarded on mismatch.
 - **Keep it running.** Settings → turn on *Start automatically with Batocera*.
+- **Change the password.** Settings → Password. Every other signed-in browser is signed out.
+- **Sign out.** Bottom of the sidebar.
 
 ---
 
@@ -154,17 +158,26 @@ static/index.html + app.css + app.js   the whole UI, no build step
   and the matching `gamelist.xml` tags are written, so they appear immediately.
 - **Settings** live in `/userdata/system/batocera_portal_settings.json`. Scraper credentials live
   in `batocera.conf` under the same keys Batocera's scraper reads.
+- **Authentication.** Every request except the login page, the static assets and
+  `POST /api/login` must carry either the session cookie set by a successful login or an HTTP
+  Basic `Authorization` header with the portal password. The password is stored as a salted
+  PBKDF2-SHA256 hash (200,000 rounds) in the settings file; until one is set, the default
+  `linuxrox` applies. Five wrong attempts from one IP address lock that address out for
+  30 seconds. Sessions live in memory, so restarting the portal signs everyone out.
 - **State in memory** is limited to a 60 s ROM scan cache, a 5 min catalogue cache, a 10 min
-  RetroAchievements cache and the batch job list.
+  RetroAchievements cache, the batch job list and the login sessions.
 
 ---
 
 ## REST API
 
-Every endpoint returns JSON with `"ok": true` or `"ok": false, "error": "…"`.
+Every endpoint returns JSON with `"ok": true` or `"ok": false, "error": "…"`. All of them except
+`POST /api/login` need authentication: either the browser session cookie or HTTP Basic auth with
+any username and the portal password. Unauthenticated calls get `401` and `{"login": "/login"}`.
 
 | Group | Endpoints |
 |---|---|
+| **Auth** | `POST /api/login` `{password}` · `POST /api/logout` · `GET /api/auth` · `POST /api/password` `{current, new, confirm}` |
 | **Info** | `GET /api/info` · `GET /api/dashboard` · `GET /api/fans` · `GET /api/news` · `GET /api/stats` · `GET /api/random-game` |
 | **Settings** | `GET /api/settings` · `POST /api/settings` |
 | **Service** | `GET /api/service/status` · `POST /api/service/autostart` `{enabled}` · `GET /api/service/custom-sh` · `POST /api/service/restart` · `POST /api/service/stop` · `POST /api/service/power` `{action: reboot\|shutdown}` |
@@ -179,8 +192,8 @@ Every endpoint returns JSON with `"ok": true` or `"ok": false, "error": "…"`.
 Example:
 
 ```bash
-curl -s http://BATOCERA:5000/api/dashboard | python3 -m json.tool
-curl -s -X POST http://BATOCERA:5000/api/systems/preview -H 'Content-Type: application/json' \
+curl -s -u :linuxrox http://BATOCERA:5000/api/dashboard | python3 -m json.tool
+curl -s -u :linuxrox -X POST http://BATOCERA:5000/api/systems/preview -H 'Content-Type: application/json' \
   -d '{"fullname":"Mega Drive Hacks","name":"md-hacks","rompath":"/userdata/roms/md-hacks","extensions":".md .zip","emulator":"libretro","core":"genesisplusgx"}'
 ```
 
@@ -201,6 +214,10 @@ Defaults, all editable in Settings:
 | `configgen_path` | auto-detected `emulatorlauncher.py` |
 | `server_port` | `5000` |
 | `ra_user` / `ra_api_key` | empty (RetroAchievements is optional) |
+| `password_hash` / `password_salt` | empty until you change the password (default `linuxrox` applies) |
+
+Forgot the password? Over SSH, delete the two password keys from
+`/userdata/system/batocera_portal_settings.json` and restart the portal; the default applies again.
 
 Environment variables for development: `BP_SETTINGS` (settings file path) and `BP_BASE_DIR`
 (replaces `/userdata`).
@@ -212,7 +229,7 @@ Environment variables for development: `BP_SETTINGS` (settings file path) and `B
 ```bash
 pip install pytest
 python -m pytest
-# 77 passed
+# 91 passed
 ```
 
 Tests run anywhere; they build a fake `/userdata` tree in a temporary folder and spin up the
@@ -228,6 +245,7 @@ BatoceraPortal/
 ├── portal/                backend package (see "How it works")
 ├── static/
 │   ├── index.html         the single page
+│   ├── login.html         sign-in page
 │   ├── app.css
 │   ├── app.js
 │   └── favicon.svg
@@ -240,24 +258,35 @@ BatoceraPortal/
 
 ## Security
 
-This panel has **no authentication**. Anyone who can reach the port can create and delete
-configurations, upload files, restart EmulationStation and reboot the machine, and Batocera runs
-everything as root.
+The portal is **password protected** (default `linuxrox`, change it in Settings). Once signed in,
+a user can create and delete configurations, upload files, restart EmulationStation and reboot
+the machine, and Batocera runs everything as root. So:
 
-- Keep it on your home LAN. Do not port-forward it.
+- Change the default password on first use.
+- Keep it on your home LAN. Do not port-forward it: traffic is plain HTTP, so the password would
+  cross the internet unencrypted.
 - For remote access use a VPN such as Tailscale or WireGuard.
 - If your network is not trusted, leave autostart off and start it only when needed.
 
-What it does defend against: every path coming from the browser is confined to its configured
-base folder, slugs are restricted to `[a-z0-9_-]`, `batocera.conf` values are sanitised, request
-bodies are capped at 512 MB and BIOS downloads at 64 MB and verified by MD5.
+What it defends against: the password is stored only as a salted PBKDF2 hash, logins are rate
+limited per IP address, the session cookie is HttpOnly, every path coming from the browser is
+confined to its configured base folder, slugs are restricted to `[a-z0-9_-]`, `batocera.conf`
+values are sanitised, request bodies are capped at 512 MB and BIOS downloads at 64 MB and
+verified by MD5.
 
 ---
 
 ## Changes in this version
 
-**1.0.0 (2026-10-25)** – first release. Everything listed under *What it does* is new. See
-`CHANGELOG.md` for the full list.
+**1.1.0 (2026-10-25)** – password protection.
+
+- Login page with session cookie; default password `linuxrox`; change it in Settings → Password.
+- HTTP Basic auth for scripts and `curl` (`-u :linuxrox`).
+- Salted PBKDF2 hash in the settings file, 30 s lockout after 5 failures per IP, sign-out button,
+  default-password warning, four new auth endpoints, 14 new tests (91 total).
+- `GET /api/settings` no longer exposes secret keys; `POST /api/settings` cannot write them.
+
+**1.0.0 (2026-10-25)** – first release. See `CHANGELOG.md` for the full list.
 
 Design decisions compared with similar tools:
 
@@ -271,5 +300,5 @@ Design decisions compared with similar tools:
 
 ## Versioning
 
-The version number is `1.0.0`, defined once in `portal/__init__.py`. Every code change bumps it
+The version number is `1.1.0`, defined once in `portal/__init__.py`. Every code change bumps it
 (patch for fixes, minor for features, major for breaking changes) and gets a CHANGELOG entry.

@@ -47,6 +47,8 @@ def default_settings():
         "server_port":    5000,
         "ra_user":        "",
         "ra_api_key":     "",
+        "password_hash":  "",
+        "password_salt":  "",
     }
 
 
@@ -75,11 +77,26 @@ def load_settings():
     return s
 
 
-def save_settings(updates):
-    """Merge editable keys into the settings file and return the new settings."""
+# Keys that must never be reported back to the browser.
+SECRET_KEYS = ("password_hash", "password_salt")
+
+
+def public_settings(settings):
+    out = {k: v for k, v in settings.items() if k not in SECRET_KEYS}
+    out["ra_api_key"] = "********" if settings.get("ra_api_key") else ""
+    out["password_is_default"] = not settings.get("password_hash")
+    return out
+
+
+def save_settings(updates, allow=()):
+    """Merge editable keys into the settings file and return the new settings.
+
+    `allow` names extra keys this particular caller may write (used for the
+    password hash, which the generic settings endpoint must not touch).
+    """
     current = load_settings()
     for k, v in (updates or {}).items():
-        if k in EDITABLE_KEYS:
+        if k in EDITABLE_KEYS or k in allow:
             current[k] = v
     p = settings_file()
     p.parent.mkdir(parents=True, exist_ok=True)

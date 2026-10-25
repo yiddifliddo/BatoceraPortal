@@ -28,6 +28,7 @@
       <div class="es-pill" id="es-pill"><span class="dot"></span><span id="es-pill-text">EmulationStation</span></div>
       <button class="btn btn-sm btn-warn hidden" id="es-restart-btn">Restart EmulationStation</button>
       <div class="muted small" id="host-line"></div>
+      <button class="btn btn-sm btn-ghost" id="logout-btn">Sign out</button>
     </div>
   </aside>
 
@@ -291,7 +292,20 @@
           <div class="actions"><button type="submit" class="btn btn-primary">Save settings</button> <button type="button" class="btn" id="ra-test">Test RetroAchievements</button></div>
         </form>
       </div>
-      <div class="card"><h3>About</h3><p class="muted">{{app_name}} v{{app_version}} by Dan Lee. MIT licence. Python standard library only. This panel has <b>no authentication</b>: keep it on your home network or behind a VPN.</p></div>
+      <div class="grid grid-2">
+        <form class="card" id="password-form" autocomplete="off">
+          <h3>Password</h3>
+          <div class="notice warn hidden" id="default-pw-notice">You are still using the <b>default password</b>. Change it now.</div>
+          <div class="form-grid">
+            <label>Current password <input type="password" id="pw-current" required autocomplete="current-password"></label>
+            <label>New password <input type="password" id="pw-new" required minlength="4" autocomplete="new-password"></label>
+            <label>Confirm new password <input type="password" id="pw-confirm" required minlength="4" autocomplete="new-password"></label>
+          </div>
+          <div class="actions"><button type="submit" class="btn btn-primary">Change password</button></div>
+          <p class="muted small">Changing the password signs out every other browser. Scripts can authenticate with HTTP Basic auth, any username and this password.</p>
+        </form>
+        <div class="card"><h3>About</h3><p class="muted">{{app_name}} v{{app_version}} by Dan Lee. MIT licence. Python standard library only. Access is password protected, but traffic is plain HTTP: keep it on your home network or behind a VPN.</p></div>
+      </div>
     </section>
   </main>
 </div>

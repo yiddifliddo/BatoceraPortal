@@ -1,3 +1,4 @@
+import base64
 import json
 import threading
 from http.client import HTTPConnection
@@ -18,6 +19,7 @@ def client(env, monkeypatch):
         c = HTTPConnection("127.0.0.1", port, timeout=10)
         data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
         headers = {"Content-Type": ctype} if data else {}
+        headers["Authorization"] = "Basic " + base64.b64encode(b":linuxrox").decode()
         c.request(method, path, body=data, headers=headers)
         r = c.getresponse()
         payload = r.read()
