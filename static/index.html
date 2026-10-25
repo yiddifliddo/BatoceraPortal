@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{app_name}}</title>
+<link rel="icon" href="/favicon.ico" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="/favicon.ico" alt="" width="34" height="34">
+      <div><div class="brand-name">{{app_name}}</div><div class="brand-sub">v{{app_version}}</div></div>
+      <button class="icon-btn menu-close" id="menu-close" aria-label="Close menu">&times;</button>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-panel="dashboard"><span class="ico">&#9673;</span>Dashboard</button>
+      <button class="nav-item" data-panel="systems"><span class="ico">&#9881;</span>Systems</button>
+      <button class="nav-item" data-panel="add"><span class="ico">&#43;</span>Add / Edit System</button>
+      <button class="nav-item" data-panel="roms"><span class="ico">&#9638;</span>ROMs &amp; BIOS</button>
+      <button class="nav-item" data-panel="scraper"><span class="ico">&#9998;</span>Scraper</button>
+      <button class="nav-item" data-panel="themes"><span class="ico">&#9830;</span>Themes</button>
+      <button class="nav-item" data-panel="settings"><span class="ico">&#9776;</span>Settings</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="es-pill" id="es-pill"><span class="dot"></span><span id="es-pill-text">EmulationStation</span></div>
+      <button class="btn btn-sm btn-warn hidden" id="es-restart-btn">Restart EmulationStation</button>
+      <div class="muted small" id="host-line"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-open" id="menu-open" aria-label="Open menu">&#9776;</button>
+      <h1 id="panel-title">Dashboard</h1>
+      <div class="topbar-right">
+        <label class="toggle small"><input type="checkbox" id="auto-refresh" checked><span>Auto refresh</span></label>
+      </div>
+    </header>
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <section class="panel active" id="panel-dashboard">
+      <div class="hero card">
+        <div>
+          <div class="hero-title">Hello, <span id="hero-host">Batocera</span></div>
+          <div class="muted" id="hero-sub">Loading system information…</div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><div class="kpi-val" id="kpi-systems">–</div><div class="kpi-lbl">ROM folders</div></div>
+          <div class="kpi"><div class="kpi-val" id="kpi-custom">–</div><div class="kpi-lbl">Custom systems</div></div>
+          <div class="kpi"><div class="kpi-val" id="kpi-plays">–</div><div class="kpi-lbl">Games played</div></div>
+          <div class="kpi"><div class="kpi-val" id="kpi-hours">–</div><div class="kpi-lbl">Hours played</div></div>
+        </div>
+      </div>
+
+      <div class="grid grid-3">
+        <div class="card ring-card"><h3>CPU</h3><div class="ring-wrap"><svg class="ring" viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="52"/><circle class="ring-fg" id="ring-cpu" cx="60" cy="60" r="52"/></svg><div class="ring-center"><div class="ring-val" id="cpu-usage">–</div><div class="ring-sub">usage</div></div></div><div class="ring-meta"><div id="cpu-model" class="ellipsis">–</div><div class="muted small"><span id="cpu-cores">–</span> cores · <span id="cpu-temp">–</span></div></div></div>
+        <div class="card ring-card"><h3>GPU</h3><div class="ring-wrap"><svg class="ring" viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="52"/><circle class="ring-fg alt" id="ring-gpu" cx="60" cy="60" r="52"/></svg><div class="ring-center"><div class="ring-val" id="gpu-usage">–</div><div class="ring-sub">usage</div></div></div><div class="ring-meta"><div id="gpu-model" class="ellipsis">–</div><div class="muted small" id="gpu-meta">–</div></div></div>
+        <div class="card ring-card"><h3>Memory</h3><div class="ring-wrap"><svg class="ring" viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="52"/><circle class="ring-fg alt2" id="ring-mem" cx="60" cy="60" r="52"/></svg><div class="ring-center"><div class="ring-val" id="mem-usage">–</div><div class="ring-sub">used</div></div></div><div class="ring-meta"><div id="mem-detail">–</div><div class="muted small">Load: <span id="load-avg">–</span></div></div></div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card"><h3>Storage</h3><div id="disk-list" class="stack"></div></div>
+        <div class="card"><h3>Fans &amp; power</h3><div id="fan-list" class="stack"><div class="muted">No fan sensors found.</div></div><div id="battery-line" class="muted small"></div></div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-head"><h3>Random game</h3><button class="btn btn-sm" id="random-again">Another</button></div>
+          <div id="random-game" class="random"><div class="muted">Loading…</div></div>
+        </div>
+        <div class="card">
+          <h3>Most played</h3>
+          <div id="top-played" class="stack"><div class="muted">No play statistics yet.</div></div>
+          <div class="muted small" id="last-played"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-3">
+        <div class="card"><h3>EmulationStation</h3><div id="es-card" class="stack"></div></div>
+        <div class="card"><h3>RetroAchievements</h3><div id="ra-card"><div class="muted">Add your username and API key in Settings.</div></div></div>
+        <div class="card"><h3>Batocera releases</h3><div id="news-list" class="stack"><div class="muted">Loading…</div></div></div>
+      </div>
+    </section>
+
+    <!-- ===================== SYSTEMS ===================== -->
+    <section class="panel" id="panel-systems">
+      <div class="card">
+        <div class="card-head"><h3>Custom systems</h3><div><button class="btn btn-sm" id="systems-refresh">Refresh</button> <button class="btn btn-sm btn-primary" id="systems-new">New system</button></div></div>
+        <p class="muted">Each system here is one <code>es_systems_&lt;slug&gt;.cfg</code> file in your EmulationStation config folder. Batocera's built-in systems are not listed because they cannot be edited this way.</p>
+        <div class="table-wrap"><table class="table" id="systems-table"><thead><tr><th>System</th><th>Slug</th><th>ROM path</th><th>Extensions</th><th>Emulator</th><th></th></tr></thead><tbody></tbody></table></div>
+        <div class="muted" id="systems-empty">No custom systems yet. Click <b>New system</b> to create one.</div>
+      </div>
+    </section>
+
+    <!-- ===================== ADD / EDIT ===================== -->
+    <section class="panel" id="panel-add">
+      <form class="card" id="system-form" autocomplete="off">
+        <div class="card-head"><h3 id="form-title">New system</h3><span class="badge hidden" id="form-editing"></span></div>
+        <div class="form-grid">
+          <label class="span2">Start from a Batocera reference system
+            <select id="f-reference"><option value="">— pick one to prefill the form —</option></select>
+            <span class="hint">Copies the extensions, emulator, core, theme and platform from a system Batocera already knows.</span>
+          </label>
+          <label>Full name <input id="f-fullname" required placeholder="Sega Mega Drive (Hacks)"></label>
+          <label>Slug <input id="f-name" required pattern="[a-z0-9][a-z0-9_\-]*" placeholder="megadrive-hacks"><span class="hint">Lowercase letters, digits, - and _. Also the ROM folder and theme name.</span></label>
+          <label>Manufacturer <input id="f-manufacturer" placeholder="Sega"></label>
+          <label>Release year <input id="f-release" placeholder="1988"></label>
+          <label>Hardware type <select id="f-hardware"></select></label>
+          <label>Theme folder <input id="f-theme" placeholder="megadrive"><span class="hint">Which theme folder to borrow artwork from.</span></label>
+          <label>ROM path <input id="f-rompath" required placeholder="/userdata/roms/megadrive-hacks"></label>
+          <label>Extensions <input id="f-extensions" required placeholder=".md .bin .zip .7z"><select id="f-ext-preset"><option value="">Presets…</option></select></label>
+          <label>Platform (for scraping) <input id="f-platform" placeholder="megadrive"></label>
+          <label>Emulator <input id="f-emulator" placeholder="libretro"></label>
+          <label>Default core <input id="f-core" placeholder="genesisplusgx"></label>
+          <label>Extra cores <input id="f-extra-cores" placeholder="picodrive, blastem"></label>
+          <label class="span2">Launch command <input id="f-command" placeholder="leave empty for Batocera's default emulatorlauncher"></label>
+          <label class="span2">Description <textarea id="f-description" rows="2"></textarea></label>
+          <label class="check"><input type="checkbox" id="f-create-roms" checked> Create the ROM folder if missing</label>
+          <label class="check"><input type="checkbox" id="f-conf-entry" checked> Add emulator/core lines to batocera.conf</label>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="f-preview">Preview XML</button>
+          <button type="button" class="btn" id="f-dryrun">Dry run</button>
+          <button type="submit" class="btn btn-primary" id="f-save">Save system</button>
+          <button type="button" class="btn btn-ghost" id="f-cancel">Cancel</button>
+        </div>
+        <pre class="log hidden" id="f-log"></pre>
+        <pre class="xml hidden" id="f-xml"></pre>
+      </form>
+    </section>
+
+    <!-- ===================== ROMS & BIOS ===================== -->
+    <section class="panel" id="panel-roms">
+      <div class="tabs"><button class="tab active" data-tab="roms-tab">ROM folders</button><button class="tab" data-tab="bios-tab">BIOS check</button></div>
+      <div class="tab-body active" id="roms-tab">
+        <div class="card">
+          <div class="card-head"><h3>ROM folders</h3><div><input class="search" id="roms-search" placeholder="Search systems…"><button class="btn btn-sm" id="roms-refresh">Rescan</button></div></div>
+          <div class="chips" id="roms-chips"></div>
+          <div class="sys-grid" id="roms-grid"></div>
+        </div>
+        <div class="card hidden" id="rom-browser">
+          <div class="card-head"><h3 id="rom-browser-title">Files</h3><div><button class="btn btn-sm" id="rom-browser-up">Up</button> <button class="btn btn-sm" id="rom-browser-close">Close</button></div></div>
+          <div class="muted small" id="rom-browser-path"></div>
+          <div class="table-wrap"><table class="table" id="rom-files"><thead><tr><th>File</th><th>Title</th><th>Size</th><th>Plays</th><th>Art</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+      <div class="tab-body" id="bios-tab">
+        <div class="card">
+          <div class="card-head"><h3>BIOS check</h3><div><label class="toggle small"><input type="checkbox" id="bios-installed-only" checked><span>Only systems with a ROM folder</span></label> <button class="btn btn-sm" id="bios-refresh">Re-check</button></div></div>
+          <div class="muted small" id="bios-source"></div>
+          <div class="kpis kpis-left" id="bios-summary"></div>
+          <div id="bios-list" class="stack"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SCRAPER ===================== -->
+    <section class="panel" id="panel-scraper">
+      <div class="tabs"><button class="tab active" data-tab="scrape-one">Single game</button><button class="tab" data-tab="scrape-batch">Batch</button><button class="tab" data-tab="scrape-config">Credentials</button></div>
+      <div class="tab-body active" id="scrape-one">
+        <div class="card">
+          <div class="form-grid">
+            <label>System <select id="sc-system"></select></label>
+            <label>ROM <select id="sc-rom"></select></label>
+            <label>Source <select id="sc-source"><option value="screenscraper">ScreenScraper.fr</option><option value="thegamesdb">TheGamesDB</option></select></label>
+            <div class="actions"><button class="btn btn-primary" id="sc-search">Search</button></div>
+          </div>
+          <div id="sc-result" class="hidden">
+            <div class="sc-layout">
+              <div id="sc-media" class="sc-media"></div>
+              <div class="sc-meta">
+                <h3 id="sc-name"></h3>
+                <p class="muted" id="sc-desc"></p>
+                <dl class="dl" id="sc-fields"></dl>
+                <div class="chips" id="sc-types"></div>
+                <label class="check"><input type="checkbox" id="sc-overwrite"> Overwrite existing files</label>
+                <label class="check"><input type="checkbox" id="sc-meta-write" checked> Write metadata to gamelist.xml</label>
+                <div class="actions"><button class="btn btn-primary" id="sc-apply">Download &amp; save</button></div>
+                <pre class="log hidden" id="sc-log"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-body" id="scrape-batch">
+        <div class="card">
+          <h3>Scrape whole systems</h3>
+          <div class="chips" id="batch-systems"></div>
+          <div class="form-grid">
+            <label>Source <select id="batch-source"><option value="screenscraper">ScreenScraper.fr</option><option value="thegamesdb">TheGamesDB</option></select></label>
+            <div><div class="lbl">Media to download</div><div class="chips" id="batch-types"></div></div>
+            <label class="check"><input type="checkbox" id="batch-skip" checked> Skip games that already have an image and description</label>
+            <label class="check"><input type="checkbox" id="batch-overwrite"> Overwrite existing media files</label>
+          </div>
+          <div class="actions"><button class="btn btn-primary" id="batch-start">Start batch</button></div>
+        </div>
+        <div class="card"><h3>Jobs</h3><div id="batch-jobs" class="stack"><div class="muted">No jobs yet.</div></div></div>
+      </div>
+      <div class="tab-body" id="scrape-config">
+        <form class="card" id="scraper-config-form">
+          <h3>Scraper credentials</h3>
+          <p class="muted">Stored in <code>batocera.conf</code> using the same keys as Batocera's own scraper, so both share them.</p>
+          <div class="form-grid">
+            <label>ScreenScraper username <input id="cfg-ss-user"></label>
+            <label>ScreenScraper password <input id="cfg-ss-pass" type="password"></label>
+            <label>ScreenScraper dev ID <input id="cfg-ss-devid"><span class="hint">Optional. Required by ScreenScraper for API access; ask them for one or reuse Batocera's.</span></label>
+            <label>ScreenScraper dev password <input id="cfg-ss-devpass" type="password"></label>
+            <label>TheGamesDB API key <input id="cfg-tgdb"></label>
+            <label>Default source <select id="cfg-source"><option value="screenscraper">ScreenScraper.fr</option><option value="thegamesdb">TheGamesDB</option></select></label>
+            <label>Region <select id="cfg-region"><option value="wor">World</option><option value="eu">Europe</option><option value="us">USA</option><option value="jp">Japan</option></select></label>
+            <label>Language <select id="cfg-lang"><option value="en">English</option><option value="fr">French</option><option value="de">German</option><option value="es">Spanish</option><option value="it">Italian</option><option value="pt">Portuguese</option></select></label>
+          </div>
+          <div class="actions"><button type="submit" class="btn btn-primary">Save credentials</button></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================== THEMES ===================== -->
+    <section class="panel" id="panel-themes">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-head"><h3>Installed themes</h3><span class="badge" id="theme-active">–</span></div>
+          <div id="theme-list" class="stack"></div>
+        </div>
+        <div class="card">
+          <h3>System logo</h3>
+          <p class="muted">Uploads a logo to <code>&lt;theme&gt;/&lt;slug&gt;/art/logo.png</code> inside the active theme in your user theme folder. Only PNG, JPEG or SVG.</p>
+          <form id="logo-form" class="form-grid">
+            <label>System <select id="logo-system"></select></label>
+            <label>Theme <select id="logo-theme"></select></label>
+            <label class="span2">File <input type="file" id="logo-file" accept=".png,.jpg,.jpeg,.svg"></label>
+            <div class="actions"><button type="submit" class="btn btn-primary">Upload logo</button> <button type="button" class="btn" id="logo-placeholder">Generate placeholder</button></div>
+          </form>
+          <div id="logo-preview" class="logo-preview"></div>
+        </div>
+      </div>
+      <div class="card"><h3>Where Batocera expects artwork</h3>
+        <pre class="xml">/userdata/themes/&lt;theme&gt;/
+  theme.xml
+  &lt;system&gt;/
+    theme.xml            per-system overrides
+    art/logo.png         system logo (what this page uploads)
+    art/background.png   optional background
+/userdata/roms/&lt;system&gt;/
+  gamelist.xml           metadata written by the scraper
+  images/&lt;rom&gt;-image.png   screenshot
+  images/&lt;rom&gt;-box.png     box art (2D)
+  images/&lt;rom&gt;-marquee.png marquee / wheel
+  videos/&lt;rom&gt;-video.mp4</pre>
+      </div>
+    </section>
+
+    <!-- ===================== SETTINGS ===================== -->
+    <section class="panel" id="panel-settings">
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Service</h3>
+          <div class="notice warn hidden" id="manual-notice">Batocera Portal is running in <b>manual mode</b>. It will not come back after a reboot. <button class="btn btn-sm btn-primary" id="manual-enable">Enable autostart</button></div>
+          <dl class="dl" id="service-info"></dl>
+          <label class="toggle"><input type="checkbox" id="autostart-toggle"><span>Start automatically with Batocera (custom.sh)</span></label>
+          <div class="actions">
+            <button class="btn" id="svc-restart">Restart portal</button>
+            <button class="btn" id="svc-customsh">View custom.sh</button>
+            <button class="btn btn-warn" id="svc-es-restart">Restart EmulationStation</button>
+            <button class="btn btn-danger" id="svc-reboot">Reboot machine</button>
+            <button class="btn btn-danger" id="svc-shutdown">Shut down</button>
+          </div>
+          <pre class="xml hidden" id="customsh-view"></pre>
+        </div>
+        <form class="card" id="settings-form">
+          <h3>Paths &amp; options</h3>
+          <div class="form-grid">
+            <label>ES config folder <input id="s-es_cfg_dir"></label>
+            <label>ROM base folder <input id="s-roms_base"></label>
+            <label>BIOS folder <input id="s-bios_dir"></label>
+            <label>User themes <input id="s-themes_user"></label>
+            <label>System themes <input id="s-themes_sys"></label>
+            <label>batocera.conf <input id="s-batocera_conf"></label>
+            <label>custom.sh <input id="s-custom_sh"></label>
+            <label>emulatorlauncher path <input id="s-configgen_path"></label>
+            <label>Server port <input id="s-server_port" type="number" min="1" max="65535"><span class="hint">Applies after restarting the portal.</span></label>
+          </div>
+          <h3>RetroAchievements</h3>
+          <div class="form-grid">
+            <label>Username <input id="s-ra_user"></label>
+            <label>Web API key <input id="s-ra_api_key" type="password"><span class="hint">From retroachievements.org → Settings → Keys. Never your password.</span></label>
+          </div>
+          <div class="actions"><button type="submit" class="btn btn-primary">Save settings</button> <button type="button" class="btn" id="ra-test">Test RetroAchievements</button></div>
+        </form>
+      </div>
+      <div class="card"><h3>About</h3><p class="muted">{{app_name}} v{{app_version}} by Dan Lee. MIT licence. Python standard library only. This panel has <b>no authentication</b>: keep it on your home network or behind a VPN.</p></div>
+    </section>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal hidden" id="modal"><div class="modal-box"><div class="modal-head"><h3 id="modal-title"></h3><button class="icon-btn" id="modal-close">&times;</button></div><div class="modal-body" id="modal-body"></div></div></div>
+<div class="toasts" id="toasts"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
